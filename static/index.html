@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="shortcut icon" href="img/favicon.png" />
+    <title>文件拷贝校验工具</title>
+    <link rel="stylesheet" href="css/style.css?v=12">
+    <!-- 引入Vue 3 -->
+    <script src="js/vue.global.js"></script>
+
+    <style>
+        .message-popup {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 10px;
+            border: 1px solid black;
+            z-index: 100000;
+        }
+        .task-popup {
+            width: 600px;
+            left: 0;
+            transform: translateX(50%);
+        }
+    </style>
+
+</head>
+
+<body>
+    <div id="app">
+        <div class="container">
+            <div v-if="showMessage" class="message-popup">
+                {{ wsMessage }}
+            </div>
+            <div class="left-panel">
+                <button class="add-project-btn" @click="showPopup('popup1')">新增项目</button>
+                <p style="padding: 0 10px;margin: 10px;font-weight: 600;">项目列表</p>
+                <div class="project-list">
+                    <a href="#" class="project-item" v-for="project in projects"
+                        :class="{ 'completed': project.completed, 'selected': project.projectID === selectedProjectID }"
+                        @click="selectProject(project.projectID)">
+                        <!-- <span>{{ project.completed ? '已完成' : '未开始' }}</span> -->
+                        {{ project.projectName }}
+                        <button class="delete-btn" @click.stop="deleteProject(project.projectID)">删除</button>
+                    </a>
+                </div>
+                <div class="settings">
+                    <button class="email-notification" @click="showPopup('popup3')">邮箱通知</button>
+                    <button class="About-notification" @click="showPopup('popupAbout')">关于</button>
+                </div>
+                
+            </div>
+
+            <div class="right-panel" v-if="selectedProjectDetails">
+                
+
+                    
+                    <!-- 弹窗2 -->
+                    <div class="popup task-popup" v-if="isPopup2Visible">
+                        <div class="popup-content">
+                            <div class="popup-header">添加任务</div>
+                            <div class="select-source">
+                                <div class="select-source-file" @click="selectSourceFolder" v-if="!sourceFolderPath">
+                                    选择源文件夹
+                                </div>
+                                <div class="select-source-file" v-else>
+                                    源文件夹路径：{{ sourceFolderPath }}
+                                    <span @click="changeSourceFolder">更改</span>
+                                </div>
+                            </div>
+                            <div class="select-target">
+                                <div class="select-target-path" @click="selectTargetPath" v-if="!targetFolderPath">
+                                    选择目标路径
+                                </div>
+                                <div v-else class="select-target-path">
+                                    目标路径：{{ targetFolderPath }}
+                                    <span @click="changeTargetPath">更改</span>
+                                </div>
+                            </div>
+
+
+                            <div class="path-preview">
+                                <div>路径预览：[目标路径+项目名称]</div>
+                                <div><span v-if="targetFolderPath">{{ targetFolderPath + '/' +
+                                        selectedProjectDetails.projectName }}</span></div>
+                            </div>
+                            
+                            <div class="copy-mode">
+                                <div>【开发中...】拷贝模式：</div>
+                                <p>◉拷贝+校验(XXHASH)  ◉拷贝+校验(md5)   ◉只拷贝不校验</p>
+                                <!-- <label>
+                                    <input type="radio" name="copy-mode" value="XXHASH" v-model="selectedCopyMode">
+                                    拷贝+校验(XXHASH)
+                                </label>
+                                <label>
+                                    <input type="radio" name="copy-mode" value="MD5" v-model="selectedCopyMode">
+                                    拷贝+校验(md5)
+                                </label>
+                                <label>
+                                    <input type="radio" name="copy-mode" value="COPY" v-model="selectedCopyMode"> 只拷贝不校验
+                                </label> -->
+                            </div>
+
+                            <div class="popup-actions">
+                                <button @click="hidePopup">关闭</button>
+                                <button class="confirm-btn" @click="addTask">确定</button>
+                            </div>
+
+                        </div>
+                    </div>
+                    <!-- 弹窗2 end -->
+
+
+
+                项目名称：{{ selectedProjectDetails.projectName }}
+
+                <button class="add-task-btn" @click="showPopup('popup2')">添加任务</button>
+                <button class="create-report" @click="showPopup('popup3')">创建报告</button>
+
+                <div class="task-creation-section">
+                    <div class="task-info" v-for="task in selectedProjectDetails.tasks" :key="task.taskId">
+                
+                        <div class="task-detail">
+                            <button @click="deleteTask(task.taskId)">删除任务</button>
+                            任务名称：{{ task.taskName }}
+                            {{}}
+                            <button v-if="task.copyStatus !== '已完成'" @click="toggleCopy(selectedProjectDetails.projectID, task.taskId, task.sourceDirectory, task.targetDirectory)">
+                                <span>{{ task.copyStatus }}</span>
+                            </button>
+                            <span v-else>{{ task.copyStatus }}</span>
+                        </div>
+                        <div class="task-status">
+                            <div style="background-color:#f0f0f0;font-size: 0.8rem;display: flex;">
+                                <div style="margin: 10px;width: 60px; border-right: 2px solid #d22222;">
+                                    <div>容量</div>
+                                    <div>{{ task.capacity }}</div>
+                                </div>
+                                <div style="display: flex;">
+                                    <div style="margin: 10px;width: 160px; border-right: 2px solid #d22222;">
+                                        <div>拷贝状态:{{ task.copyStatus }} </div>
+                                        <div>创建时间：{{ formatDuration(task.creationTime) }}</div>
+                                    </div>
+                                    <div style="margin: 10px;width: 160px; padding-left: 10px;">
+                                        <div>校验</div>
+                                        <div>{{ task.verificationStatus }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                
+                        </div>
+                        <div class="task-path">
+                            <!-- <span>源目录：</span>{{ task.sourceDirectory }} -->
+                            <span>目标目录：</span>{{ task.targetDirectory }}
+                            <button @click="openTargetDirectory(task.targetDirectory)">打开目录</button>
+                        </div>
+                
+  
+                    </div>
+              
+                </div>
+            </div>
+
+
+
+        </div>
+        <div class="overlay" v-if="isPopupVisible"></div>
+        <!-- 弹窗1 -->
+        <div class="popup" v-if="isPopup1Visible">
+            <div class="popup-content">
+                <div class="popup-header">新建项目</div>
+                <input type="text" v-model="newProjectName">
+                <button @click="hidePopup">关闭</button>
+                <button class="confirm-btn" @click="addProject">确定</button>
+            </div>
+        </div>
+
+        <div class="popup" v-if="isPopupMailVisible">
+            <div class="popup-content">
+                <!-- <div class="popup-header">邮箱通知</div> -->
+                <p>开发中......</p>
+                <button @click="hidePopup">关闭</button>
+            </div>
+        </div>
+        
+        <div class="popup" v-if="isPopupAboutVisible">
+            <div class="popup-content">
+                <div class="popup-header">关于</div>
+                <p>使用ChatGPT+Python+PyWebview+VUE+HTML+CSS+JS技术实现的文件拷贝和校验工具</p>
+                <p>特点：免费。</p>
+                <p>后续视情况在考虑要不要开源，如果开源之后被人拿去瞎搞，会随时停止。</p>
+                <button @click="hidePopup">关闭</button>
+            </div>
+        </div>
+
+    </div><!-- app end -->
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    isPopup1Visible: false,
+                    isPopup2Visible: false,
+                    isPopupMailVisible: false,
+                    isPopupAboutVisible: false,
+                    isPopupVisible: false,
+                    sourceFolderPath: '',
+                    targetFolderPath: '',
+                    projects: [],
+                    newProjectName: '', // 新项目名称
+                    selectedProjectID: null, // 存储当前选中的项目ID。
+                    selectedProjectDetails: null, // 存储当前选中的项目详情。
+                    selectedCopyMode: '', // 添加此行来定义selectedCopyMode属性
+                    taskStatuses: {},
+                    taskTimers: {}, // 初始化空对象用于存储定时器
+                    ws: null,  // WebSocket对象
+                    wsMessage: '', // 用于存储从WebSocket接收到的时间
+                    showMessage: false, // 控制消息弹窗的显示
+                };
+            },
+
+            mounted() {
+                console.log("当前网址:", window.location.href); // 输出当前网址
+                
+                const checkPyWebView = setInterval(() => {
+                    if (typeof pywebview !== 'undefined') {
+                        clearInterval(checkPyWebView);  // 清除定时器
+                        this.initApp();  // 初始化应用
+                        this.connectWebSocket(); // 建立WebSocket连接
+                    }
+                }, 100);  // 每100毫秒检查一次
+                
+                
+            },
+
+            methods: {
+                connectWebSocket() {
+                    const queryParams = new URLSearchParams(window.location.search);
+                    const port = queryParams.get('port');
+                    console.log("WebSocket port from URL:", port); // 检查获取到的端口号
+                    if (port) {
+                        this.ws = new WebSocket(`ws://localhost:${port}`);
+
+                        this.ws.onopen = () => {
+                            console.log("Connected to WebSocket");
+                        };
+
+                        this.ws.onmessage = (event) => {
+                            console.log("Message from server: " + event.data);
+
+                            if (event.data.startsWith("任务状态更新")) {
+                                this.selectProject(this.selectedProjectID); // 重新加载项目数据以更新视图
+                            }
+
+                            this.wsMessage = event.data; // 更新消息
+                            this.showMessage = true; // 显示弹窗
+
+                            // 设置定时器，在三秒后隐藏弹窗
+                            setTimeout(() => {
+                                this.showMessage = false;
+                            }, 3000);
+                        };
+
+                        this.ws.onclose = () => {
+                            console.log("Disconnected from WebSocket");
+                        };
+
+                        this.ws.onerror = (error) => {
+                            console.error("WebSocket Error: " + error);
+                        };
+                    } else {
+                        console.error("WebSocket port not found in URL");
+                    }
+                },
+
+            
+                checkCopyStatus(taskId) {
+                    pywebview.api.get_copy_status(taskId).then(status => {
+                        console.log(`任务 ${taskId} 当前状态: ${status}`); // 添加日志记录
+                        this.taskStatuses[taskId] = status; // 更新状态
+
+                        // 如果状态是“出错”，则停止定时器
+                        if (status === '出错') {
+                            this.clearTaskTimer(taskId);
+                        }
+                        if (status === '完成') {
+                            this.clearTaskTimer(taskId);
+                        }
+
+                    }).catch(error => {
+                        console.error('检查拷贝状态时出错:', error);
+                        // 如果在检查状态时出现异常，也停止定时器
+                        this.clearTaskTimer(taskId);
+                    });
+                },
+
+
+                initApp() {
+                    this.fetchProjectsList().then(() => {
+                        if (this.projects && this.projects.length > 0) {
+                            this.selectProject(this.projects[0].projectID);
+                        }
+                    });
+                },
+                showPopup(popup) {
+                    // 方法的实现逻辑
+                    if (popup === 'popup1') {
+                        this.isPopup1Visible = true;
+                        this.isPopupVisible = true;
+                    } else if (popup === 'popup2') {
+                        this.sourceFolderPath = '';
+                        this.targetFolderPath = '';
+                        this.isPopup2Visible = true;
+                        this.isPopupVisible = true;
+                    } else if (popup === 'popup3') {
+                        this.isPopupMailVisible = true;
+                        this.isPopupVisible = true;
+                    }
+                    else if (popup === 'popupAbout') {
+                        this.isPopupAboutVisible = true;
+                        this.isPopupVisible = true;
+                    }
+                },
+                hidePopup() {
+                    this.isPopup1Visible = false;
+                    this.isPopup2Visible = false;
+                    this.isPopupMailVisible = false;
+                    this.isPopupAboutVisible = false;
+                    this.isPopupVisible = false;
+
+                },
+
+                fetchProjectsList() {
+                    return new Promise((resolve, reject) => {
+                        if (typeof pywebview !== 'undefined') {
+                            pywebview.api.get_projects_list().then(projectsList => {
+                                this.projects = projectsList.projects.reverse();
+                                resolve();
+                            }).catch(error => {
+                                console.error('Error fetching projects list:', error);
+                                reject(error);
+                            });
+                        } else {
+                            console.error('pywebview is not defined');
+                            reject('pywebview is not defined');
+                        }
+                    });
+                },
+
+                selectProject(projectID) {
+                    this.selectedProjectID = projectID;
+                    pywebview.api.get_project_details(projectID).then(details => {
+                        this.selectedProjectDetails = details;
+                    }).catch(error => {
+                        console.error('Error fetching project details:', error);
+                        this.selectedProjectDetails = null; // 清空之前的项目详情
+                    });
+                },
+                addProject() {
+                    if (this.newProjectName) {
+                        pywebview.api.save_project(this.newProjectName).then(projectID => {
+                            // 新项目创建成功后的处理
+                            this.fetchProjectsList(); // 获取更新后的项目列表
+                            this.openNewProject(projectID); // 打开新创建的项目
+                        }).catch(error => console.error('Error creating project:', error));
+                        this.newProjectName = ''; // 重置输入框
+                        this.hidePopup();
+                    } else {
+                        console.log('项目名称不能为空');
+                    }
+                },
+
+                openNewProject(projectID) {
+                    this.selectedProjectID = projectID; // 设置当前选中的项目ID为新创建的项目ID
+                    this.selectProject(projectID); // 获取并显示新项目的详细信息
+                },
+
+                addTask() {
+                    if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
+                        const taskId = Date.now().toString(); // 使用当前时间戳作为任务ID
+                        const sourceFolderName = this.sourceFolderPath.split('/').pop() || this.sourceFolderPath.split('\\').pop(); // 获取源文件夹的文件夹名
+                        const newTask = {
+                            taskId: taskId,
+                            taskName: sourceFolderName, // 使用源文件夹的名字作为任务名称
+                            taskStatus: '未开始',
+                            creationTime: new Date().toISOString(),
+                            sourceDirectory: this.sourceFolderPath,
+                            // 修改 targetDirectory 为 targetFolderPath + projectName + taskName
+                            targetDirectory: this.targetFolderPath + '/' + this.selectedProjectDetails.projectName + '/' + sourceFolderName,
+                            copyMode: this.selectedCopyMode
+                        };
+
+                        pywebview.api.add_task_to_project(this.selectedProjectID, newTask)
+                            .then(() => {
+                                //console.log('Task added successfully');
+                                this.selectProject(this.selectedProjectID);
+                                this.isPopup2Visible = false;
+                                this.isPopupVisible = false;
+                                this.sourceFolderPath = '';
+                                this.targetFolderPath = '';
+                                this.hidePopup();
+                                this.taskStatuses[taskId] = '未开始';
+                            })
+                            .catch(error => console.error('Error adding task:', error));
+                    } else {
+                        console.log('必须选择项目和设置源路径与目标路径');
+                    }
+                },
+                formatDuration(creationTime) {
+                    const now = Date.now() / 1000;  // 当前时间戳（秒）
+                    const duration = now - creationTime;  // 持续时间（秒）
+                    const minutes = Math.floor(duration / 60);
+                    const seconds = Math.floor(duration % 60);
+                    return `${minutes}分${seconds}秒`;
+                },
+                pathPreview() {
+                    if (!this.targetFolderPath || !this.selectedProjectDetails) return '';
+
+                    // 获取 sourceFolderPath 的最后一个文件夹名称
+                    const sourceFolderName = this.sourceFolderPath.split('/').pop() || this.sourceFolderPath.split('\\').pop();
+
+                    // 构建完整的路径预览
+                    return this.targetFolderPath + '/' + this.selectedProjectDetails.projectName + '/' + sourceFolderName;
+                },
+
+                changeSourceFolder() {
+                    this.sourceFolderPath = '';
+                    this.selectSourceFolder();
+                },
+
+                changeTargetPath() {
+                    this.targetFolderPath = '';
+                    this.selectTargetPath();
+                },
+
+                deleteProject(projectID) {
+                    if (confirm('确定要删除这个项目吗？')) {
+                        pywebview.api.delete_project(projectID).then(() => {
+                            //console.log('Project deleted successfully');
+                            this.fetchProjectsList(); // 重新获取项目列表
+                            if (this.selectedProjectID === projectID) {
+                                this.selectedProjectID = null;
+                                this.selectedProjectDetails = null;
+                            }
+                        }).catch(error => console.error('Error deleting project:', error));
+                    }
+                },
+                deleteTask(taskId) {
+                    if (confirm('确定要删除这个任务吗？')) {
+                        pywebview.api.delete_task(this.selectedProjectID, taskId)
+                            .then(() => {
+                                // 调用方法重新加载项目详细信息
+                                this.selectProject(this.selectedProjectID);
+                            })
+                            .catch(error => {
+                                console.error('Error deleting task:', error);
+                            });
+                    }
+                },
+
+                selectFolder() {
+                    pywebview.api.select_folder().then(response => {
+                        pywebview.api.print_selected_folder(response)
+                            .then(() => console.log('Folder path sent to Python'))
+                            .catch(error => console.error('Error sending folder path to Python:', error));
+                    })
+                        .catch(error => console.error('Error selecting folder:', error));
+                },
+                selectSourceFolder() {
+                    pywebview.api.select_folder().then(response => {
+                        this.sourceFolderPath = response;
+                    }).catch(error => console.error('Error selecting source folder:', error));
+                },
+
+                selectTargetPath() {
+                    pywebview.api.select_folder().then(response => {
+                        if (this.isSubdirectory(this.sourceFolderPath, response)) {
+                            this.showError('目标路径不能是源路径的子目录');
+                            return;
+                        }
+
+                        this.checkTargetFolderEmpty(response).then(isEmpty => {
+                            if (!isEmpty) {
+                                this.showError('目标文件夹不为空');
+                                return;
+                            }
+                            this.targetFolderPath = response;
+                        });
+                    }).catch(error => console.error('Error selecting target path:', error));
+                },
+
+                isSubdirectory(sourcePath, targetPath) {
+                    if (!sourcePath || !targetPath) return false;
+                    // 格式化路径，确保以斜杠结束
+                    let formattedSourcePath = sourcePath.replace(/\\/g, '/').replace(/\/?$/, "/");
+                    let formattedTargetPath = targetPath.replace(/\\/g, '/').replace(/\/?$/, "/");
+                    return formattedTargetPath.startsWith(formattedSourcePath);
+                },
+
+                checkTargetFolderEmpty(targetPath) {
+                    return new Promise((resolve, reject) => {
+                        pywebview.api.check_folder_empty(targetPath).then(response => {
+                            resolve(response.isEmpty);
+                        }).catch(error => {
+                            console.error('检查目标文件夹时出错:', error);
+                            reject(error);
+                        });
+                    });
+                },
+
+                showError(errorMessage) {
+                    this.wsMessage = errorMessage; // 设置错误消息
+                    this.showMessage = true; // 显示弹窗
+
+                    // 设置定时器，在三秒后隐藏弹窗
+                    setTimeout(() => {
+                        this.showMessage = false;
+                    }, 3000);
+                },
+
+
+                toggleCopy(projectID, taskId, sourceDirectory, targetDirectory) {
+                    if (this.taskStatuses[taskId] === '已完成') {
+                        return; // 如果任务已完成，则不执行任何操作
+                    }
+                    if (this.taskStatuses[taskId] !== '拷贝中') {
+                        // 开始拷贝
+                        pywebview.api.start_copy(projectID, taskId, sourceDirectory, targetDirectory).then(() => {
+                            // 状态更新将在 start_copy 方法中完成
+                            // this.setTaskTimer(taskId); // 如果需要，启用定时器
+                        }).catch(error => {
+                            console.error('开始拷贝时出错:', error);
+                        });
+                    } else {
+                        // 暂停拷贝
+                        pywebview.api.stop_copy(taskId).then(() => {
+                            // 状态更新将在 stop_copy 方法中完成
+                            this.clearTaskTimer(taskId);
+                        }).catch(error => console.error('暂停拷贝时出错:', error));
+                    }
+                },
+                updateTaskStatusInJson(projectID, taskId, newStatus) {
+                    pywebview.api.update_task_status(projectID, taskId, newStatus)
+                        .then(() => {
+                            this.selectProject(projectID); // 重新加载项目数据以更新视图
+                        })
+                        .catch(error => {
+                            console.error('Error updating task status in JSON:', error);
+                        });
+                },
+
+                openTargetDirectory(targetPath) {
+                    pywebview.api.open_directory(targetPath).catch(error => {
+                        console.error('Error opening target directory:', error);
+                    });
+                },
+
+                // 设置与特定任务关联的定时器
+                setTaskTimer(taskId) {
+                    this.taskTimers[taskId] = setInterval(() => {
+                        //console.log(`每秒一次`);
+                        this.checkCopyStatus(taskId);
+                    }, 1000); // 每秒检查一次
+                },
+                // 清除与特定任务关联的定时器
+                clearTaskTimer(taskId) {
+                    if (this.taskTimers[taskId]) {
+                        clearInterval(this.taskTimers[taskId]);
+                        delete this.taskTimers[taskId];
+                    }
+                },
+
+
+            },
+
+
+        }).mount('#app');
+        // console.log('Vue app is mounted');
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,301 @@
+/* 在这里添加 CSS 样式 */
+body {
+    margin: 0px;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    background-color: #ffffff;
+    display: flex;
+}
+
+.left-panel {
+    position: relative;
+    width: 300px;
+    height: 100vh;
+    background-color: #f0f0f0;
+    /* border-radius: 10px 0 0 10px; */
+}
+
+.add-project-btn {
+    width: 280px;
+    margin: 10px;
+    padding: 10px;
+}
+
+.email-notification {
+    /* width: 280px; */
+    margin: 10px;
+    padding: 5px 10px;
+}
+
+.add-task-btn {
+    width: 100%;
+    margin: 10px 0;
+    padding: 10px;
+}
+
+.create-report {
+    /* width: 100%; */
+    margin: 10px 0;
+    padding: 10px;
+}
+
+
+
+.project-list {
+    padding: 0 10px;
+    height: 73vh;
+    overflow: hidden;
+    overflow-y: auto;
+}
+
+.settings {
+    position: absolute;
+    bottom: 0px;
+    background: #f0f0f0;
+}
+
+.project-item.selected {
+    color: #ffffff;
+    background-color: #04004c;
+    /* 或者其他您想要的样式 */
+}
+
+.project-item {
+    background-color: #fff;
+    /* 默认背景颜色 */
+    color: #000;
+    /* 默认文本颜色 */
+    transition: background-color 0.3s, color 0.3s;
+    /* 添加过渡效果，0.3秒的持续时间 */
+}
+
+.project-item:hover {
+    background-color: rgb(13 0 255 / 15%);
+    /* color: #ffffff; */
+}
+
+
+
+
+
+
+.task-info {
+    background-color: #f0f0f0;
+    border-radius: 5px;
+    /* width: 480px; */
+    margin: 10px;
+    /* padding: 5px 10px; */
+}
+
+.task-detail {
+    padding: 5px 10px;
+    background-color: #9ad58f;
+    border-radius: 5px 5px 0 0;
+}
+
+.task-status {
+    background-color: #f0f0f0;
+    font-size: 0.8rem;
+    display: flex;
+    /* padding: 10px; */
+    /* margin-top: 10px; */
+}
+
+.status-section {
+    margin: 10px;
+    border-right: 2px solid #d22222;
+    padding-right: 10px;
+}
+
+.task-path {
+    font-size: 0.8rem;
+    border-radius: 0 0 5px 5px;
+    border-top: 1px solid #cecece;
+    background-color: #f0f0f0;
+    padding: 5px 10px;
+    /* margin-top: 10px; */
+}
+
+
+.task-creation-section {
+    height: 74vh;
+    overflow: hidden;
+    overflow-y: auto;
+}
+
+
+
+
+.project-item {
+    position: relative;
+    /* 其他样式 */
+}
+
+.delete-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    /* 其他样式 */
+}
+
+.project-item:hover .delete-btn {
+    display: block;
+}
+.project-list p {
+    margin: 10px 0;
+    font-weight: 600;
+}
+
+.project-item {
+    display: block;
+    margin: 10px 0;
+    padding: 20px 10px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    position: relative;
+    text-decoration: none;
+    /* 移除超链接下划线 */
+}
+
+.project-item span {
+    margin: 0;
+    font-size: 0.7rem;
+    padding: 0px 10px;
+    border-radius: 10px 0 0 0;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    color: #ffffff;
+}
+
+.project-item.completed span {
+    background-color: #1aad0d;
+}
+
+.project-item.not-started span {
+    background-color: #9a9a9a;
+}
+
+.right-panel {
+    flex-grow: 1;
+    padding: 10px;
+}
+
+.task-item {
+    background-color: #9ad58f;
+    border-radius: 5px;
+    margin: 10px;
+    padding: 10px;
+}
+
+
+
+.popup-content {
+    margin: 10px;
+}
+
+
+
+.popup-header {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+}
+
+
+.path-preview,
+.copy-mode {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+}
+
+.popup-actions {
+    text-align: right;
+}
+
+.popup-actions button {
+    margin-left: 10px;
+}
+
+
+
+.right-panel {
+    flex-grow: 1;
+    padding: 10px;
+}
+
+
+
+/* 如果有多个类似的任务信息区域，可以为它们添加不同的背景颜色 */
+.task-info.alt-background {
+    background-color: #d1d1d1;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+    z-index: 10; /* 确保这个值小于弹窗的z-index */
+}
+
+
+
+
+
+.popup {
+    /* display: none; */
+    position: fixed;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    /* transform: translate(, -50%); */
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 1000;
+}
+
+.task-popup{
+    width: 700px;
+}
+.select-source, .select-target {
+    height: 4rem;
+    border-style: solid;
+    border-radius: 10px;
+    border-color: rgba(0,0,0,1);
+    border-width: 1px;
+    margin: 10px 0;
+}
+.select-source-file, .select-target-path {
+    height: 4rem;
+    width: 100%;
+    padding: 10px;
+}
+.select-source:hover {
+    border-color: rgb(97 0 182);
+    background-color: aliceblue;
+}
+.select-target:hover {
+    border-color: rgb(97 0 182);
+    background-color: aliceblue;
+}
+
+.select-source-file span, .select-target-path span {
+    background-color: black;
+    color: antiquewhite;
+    position: absolute;
+    right: 44px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+}
