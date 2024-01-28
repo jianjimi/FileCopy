@@ -8,25 +8,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="shortcut icon" href="img/favicon.png" />
     <title>文件拷贝校验工具</title>
-    <link rel="stylesheet" href="css/style.css?v=12">
+    <link rel="stylesheet" href="css/style.css?v=13">
     <!-- 引入Vue 3 -->
     <script src="js/vue.global.js"></script>
 
     <style>
         .message-popup {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: white;
-            padding: 10px;
-            border: 1px solid black;
-            z-index: 100000;
-        }
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgb(255 255 255 / 10%);
+        padding: 10px;
+        border: 1px solid black;
+        z-index: 100000;
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+    }
+
         .task-popup {
-            width: 600px;
-            left: 0;
-            transform: translateX(50%);
+            width: 500px;
         }
     </style>
 
@@ -39,62 +40,69 @@
                 {{ wsMessage }}
             </div>
             <div class="left-panel">
-                <button class="add-project-btn" @click="showPopup('popup1')">新增项目</button>
-                <p style="padding: 0 10px;margin: 10px;font-weight: 600;">项目列表</p>
+                <div class="leftHeader">
+
+                    <p style="padding: 0 10px;margin: 10px;font-weight: 600;">项目列表</p>
+
+                    <button class="add-project-btn" @click="showPopup('popup1')">+</button>
+
+                </div>
                 <div class="project-list">
                     <a href="#" class="project-item" v-for="project in projects"
                         :class="{ 'completed': project.completed, 'selected': project.projectID === selectedProjectID }"
                         @click="selectProject(project.projectID)">
-                        <!-- <span>{{ project.completed ? '已完成' : '未开始' }}</span> -->
                         {{ project.projectName }}
                         <button class="delete-btn" @click.stop="deleteProject(project.projectID)">删除</button>
                     </a>
                 </div>
-                <div class="settings">
+                <div class="settings leftFooter">
                     <button class="email-notification" @click="showPopup('popup3')">邮箱通知</button>
                     <button class="About-notification" @click="showPopup('popupAbout')">关于</button>
                 </div>
-                
+
             </div>
 
             <div class="right-panel" v-if="selectedProjectDetails">
-                
 
-                    
-                    <!-- 弹窗2 -->
-                    <div class="popup task-popup" v-if="isPopup2Visible">
-                        <div class="popup-content">
-                            <div class="popup-header">添加任务</div>
-                            <div class="select-source">
-                                <div class="select-source-file" @click="selectSourceFolder" v-if="!sourceFolderPath">
-                                    选择源文件夹
-                                </div>
-                                <div class="select-source-file" v-else>
-                                    源文件夹路径：{{ sourceFolderPath }}
-                                    <span @click="changeSourceFolder">更改</span>
-                                </div>
+                <!-- 弹窗2 -->
+                <div class="popup task-popup" v-if="isPopup2Visible">
+                    <div class="popup-header">
+                        添加任务
+                    </div>
+                    <div class="popup-content">
+                        <div class="select-source">
+                            <div class="select-source-file" @click="selectSourceFolder" v-if="!sourceFolderPath">
+                                选择源文件夹
                             </div>
-                            <div class="select-target">
-                                <div class="select-target-path" @click="selectTargetPath" v-if="!targetFolderPath">
-                                    选择目标路径
-                                </div>
-                                <div v-else class="select-target-path">
-                                    目标路径：{{ targetFolderPath }}
-                                    <span @click="changeTargetPath">更改</span>
-                                </div>
+                            <div class="select-source-file" v-else>
+                                源文件夹路径：<br>{{ sourceFolderPath }}
+                                <span @click="changeSourceFolder">更改</span>
                             </div>
+                        </div>
+                        <div class="select-target">
+                            <div class="select-target-path" @click="selectTargetPath" v-if="!targetFolderPath">
+                                选择目标路径
+                            </div>
+                            <div v-else class="select-target-path">
+                                目标路径：<br>{{ targetFolderPath }}
+                                <span @click="changeTargetPath">更改</span>
+                            </div>
+                        </div>
 
 
-                            <div class="path-preview">
-                                <div>路径预览：[目标路径+项目名称]</div>
-                                <div><span v-if="targetFolderPath">{{ targetFolderPath + '/' +
-                                        selectedProjectDetails.projectName }}</span></div>
+                        <div class="path-preview">
+                            <div class="pathPreviewTitle">路径预览：[目标路径+项目名称]</div>
+
+                            <div v-if="targetFolderPath">
+                                {{ targetFolderPath + '/' + selectedProjectDetails.projectName }}
                             </div>
-                            
-                            <div class="copy-mode">
-                                <div>【开发中...】拷贝模式：</div>
-                                <p>◉拷贝+校验(XXHASH)  ◉拷贝+校验(md5)   ◉只拷贝不校验</p>
-                                <!-- <label>
+                            <div v-else style="height: 1rem;"></div>
+                        </div>
+
+                        <div class="copy-mode">
+                           <div class="copyModeTitle">【开发中...】拷贝模式：</div>
+                           <div>◉拷贝+校验(XXHASH) ◉拷贝+校验(md5) ◉只拷贝不校验</div>
+                            <!-- <label>
                                     <input type="radio" name="copy-mode" value="XXHASH" v-model="selectedCopyMode">
                                     拷贝+校验(XXHASH)
                                 </label>
@@ -105,64 +113,86 @@
                                 <label>
                                     <input type="radio" name="copy-mode" value="COPY" v-model="selectedCopyMode"> 只拷贝不校验
                                 </label> -->
-                            </div>
-
-                            <div class="popup-actions">
-                                <button @click="hidePopup">关闭</button>
-                                <button class="confirm-btn" @click="addTask">确定</button>
-                            </div>
-
                         </div>
                     </div>
-                    <!-- 弹窗2 end -->
 
+                    <div class="popup-footer">
+                        <button style="width: 25%;" @click="hidePopup">关闭</button>
+                        <button style="width: 25%;" class="confirm-btn" @click="addTask">确定</button>
+                    </div>
 
+                </div>
+                <!-- 弹窗2 end -->
+                <div class="rightHeader">
+                    <div class="rightHeaderProject">
 
-                项目名称：{{ selectedProjectDetails.projectName }}
+                        项目名称：{{ selectedProjectDetails.projectName }}
 
-                <button class="add-task-btn" @click="showPopup('popup2')">添加任务</button>
-                <button class="create-report" @click="showPopup('popup3')">创建报告</button>
+                    </div>
+                    <div class="rightHeaderBtn">
+                        <button class="add-task-btn" @click="showPopup('popup2')">添加任务</button>
+                        <button class="create-report" @click="showPopup('popup3')">创建报告</button>
+                    </div>
+
+                </div>
+
 
                 <div class="task-creation-section">
+
                     <div class="task-info" v-for="task in selectedProjectDetails.tasks" :key="task.taskId">
-                
-                        <div class="task-detail">
-                            <button @click="deleteTask(task.taskId)">删除任务</button>
-                            任务名称：{{ task.taskName }}
-                            {{}}
-                            <button v-if="task.copyStatus !== '已完成'" @click="toggleCopy(selectedProjectDetails.projectID, task.taskId, task.sourceDirectory, task.targetDirectory)">
+
+                        <div class="task-detail" :style="{ backgroundColor: getBackgroundColor(task.copyStatus) }">
+                            <button v-if="task.copyStatus !== '已完成'"
+                                @click="toggleCopy(selectedProjectDetails.projectID, task.taskId, task.sourceDirectory, task.targetDirectory)">
                                 <span>{{ task.copyStatus }}</span>
                             </button>
                             <span v-else>{{ task.copyStatus }}</span>
-                        </div>
-                        <div class="task-status">
-                            <div style="background-color:#f0f0f0;font-size: 0.8rem;display: flex;">
-                                <div style="margin: 10px;width: 60px; border-right: 2px solid #d22222;">
-                                    <div>容量</div>
-                                    <div>{{ task.capacity }}</div>
-                                </div>
-                                <div style="display: flex;">
-                                    <div style="margin: 10px;width: 160px; border-right: 2px solid #d22222;">
-                                        <div>拷贝状态:{{ task.copyStatus }} </div>
-                                        <div>创建时间：{{ formatDuration(task.creationTime) }}</div>
-                                    </div>
-                                    <div style="margin: 10px;width: 160px; padding-left: 10px;">
-                                        <div>校验</div>
-                                        <div>{{ task.verificationStatus }}</div>
-                                    </div>
-                                </div>
+
+                            
+                            任务名称：{{ task.taskName }}
+
+
+                            <div style="position: absolute; right: 10px; top: 10px;" @click="deleteTask(task.taskId)">
+                                <img style="width: 20px;" src="img/deltask.png">
                             </div>
-                
+
                         </div>
-                        <div class="task-path">
-                            <!-- <span>源目录：</span>{{ task.sourceDirectory }} -->
-                            <span>目标目录：</span>{{ task.targetDirectory }}
-                            <button @click="openTargetDirectory(task.targetDirectory)">打开目录</button>
+                        <div class="taskContent">
+
+                            <div class="task-status">
+                                <div style="font-size: 0.8rem;display: flex;">
+                                    <div style="margin: 10px;width: 60px; border-right: 2px solid #d22222;">
+                                        <div>容量</div>
+                                        <div>{{ task.capacity }}</div>
+                                    </div>
+                                    <div style="display: flex;">
+                                        <div style="margin: 10px;width: 160px; border-right: 2px solid #d22222;">
+                                            <div>拷贝状态:{{ task.copyStatus }} </div>
+                                            <div>创建时间：{{ formatDuration(task.creationTime) }}</div>
+                                        </div>
+                                        <div style="margin: 10px;width: 160px; padding-left: 10px;">
+                                            <div>校验</div>
+                                            <div>{{ task.verificationStatus }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+    
+                            </div>
+                            <div class="task-path">
+                                <span>源目录：</span>{{ task.sourceDirectory }}<br>
+                                <span>目标目录：</span>{{ task.targetDirectory }}
+
+                                <div v-if="task.copyStatus == '已完成'" style="position: absolute; right: 10px; top: 15px;" @click="openTargetDirectory(task.targetDirectory)">
+                                    <img style="width: 20px;" src="img/wenjianjia.png">
+                                </div>
+
+                            </div>
+    
+
                         </div>
-                
-  
+
                     </div>
-              
+
                 </div>
             </div>
 
@@ -171,14 +201,19 @@
         </div>
         <div class="overlay" v-if="isPopupVisible"></div>
         <!-- 弹窗1 -->
-        <div class="popup" v-if="isPopup1Visible">
+        <div class="popup AddProject" v-if="isPopup1Visible">
+            <div class="popup-header">
+                <span>新建项目</span>
+            </div>
             <div class="popup-content">
-                <div class="popup-header">新建项目</div>
                 <input type="text" v-model="newProjectName">
-                <button @click="hidePopup">关闭</button>
+            </div>
+            <div class="popup-footer">
+                <button class="close-btn" @click="hidePopup">关闭</button>
                 <button class="confirm-btn" @click="addProject">确定</button>
             </div>
         </div>
+
 
         <div class="popup" v-if="isPopupMailVisible">
             <div class="popup-content">
@@ -187,7 +222,7 @@
                 <button @click="hidePopup">关闭</button>
             </div>
         </div>
-        
+
         <div class="popup" v-if="isPopupAboutVisible">
             <div class="popup-content">
                 <div class="popup-header">关于</div>
@@ -228,7 +263,7 @@
 
             mounted() {
                 console.log("当前网址:", window.location.href); // 输出当前网址
-                
+
                 const checkPyWebView = setInterval(() => {
                     if (typeof pywebview !== 'undefined') {
                         clearInterval(checkPyWebView);  // 清除定时器
@@ -236,8 +271,8 @@
                         this.connectWebSocket(); // 建立WebSocket连接
                     }
                 }, 100);  // 每100毫秒检查一次
-                
-                
+
+
             },
 
             methods: {
@@ -280,7 +315,7 @@
                     }
                 },
 
-            
+
                 checkCopyStatus(taskId) {
                     pywebview.api.get_copy_status(taskId).then(status => {
                         console.log(`任务 ${taskId} 当前状态: ${status}`); // 添加日志记录
@@ -576,6 +611,21 @@
                         delete this.taskTimers[taskId];
                     }
                 },
+                
+                getBackgroundColor(copyStatus) {
+                    switch (copyStatus) {
+                        case '已完成':
+                        return 'green';
+                        case '拷贝中':
+                        return 'white';
+                        case '开始拷贝':
+                        return 'blue';
+                        case '出错':
+                        return 'red';
+                        default:
+                        return 'transparent'; // 默认颜色
+                    }
+                    },
 
 
             },

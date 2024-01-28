@@ -375,14 +375,14 @@ def main():
         
         js_api=api,
         width=1000,
-        height=700,
+        height=750,
         resizable=False,
         fullscreen=False,
         confirm_close=True,
         localization=chinese
     )
 
-    webview.start(http_server=False, gui='edgechromium', debug=False, private_mode=True)
+    webview.start(http_server=False, gui='edgechromium', debug=True, private_mode=True)
 
     sys.exit(0)
 
