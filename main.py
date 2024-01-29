@@ -1,5 +1,3 @@
-import tkinter as tk
-from tkinter import filedialog
 import webview
 import threading
 import queue
@@ -12,10 +10,10 @@ import websockets
 import time
 
 import sys
-import io
 
 import subprocess
 
+global window
 
 # 全局变量
 folder_request_queue = queue.Queue()
@@ -92,23 +90,6 @@ server_thread.start()
 # 在程序退出时关闭服务器
 def close_server(stop_event):
     stop_event.set()
-
-# 调用 close_server(stop_event) 来停止服务器
-
-
-def tkinter_thread():
-    root = tk.Tk()
-    root.withdraw()
-
-    while True:
-        # 等待文件夹选择请求
-        request = folder_request_queue.get()
-        if request == 'select_folder':
-            folder_path = filedialog.askdirectory(master=root)
-            folder_response_queue.put(folder_path)
-
-# 启动Tkinter线程
-threading.Thread(target=tkinter_thread, daemon=True).start()
 
 
 class Api:
@@ -231,10 +212,14 @@ class Api:
             return {"projects": []}
     
     def select_folder(self):
-        folder_request_queue.put('select_folder')
-        folder_path = folder_response_queue.get()
-        self.print_selected_folder(folder_path)  # 确保调用此方法
-        return folder_path
+        result = window.create_file_dialog(
+            webview.FOLDER_DIALOG
+        )
+        print(result)
+        
+        return result
+
+
 
 
     def print_selected_folder(self, folder_path):
@@ -360,11 +345,12 @@ class Api:
       
 
 def main():
+    global window
     # 等待WebSocket服务器分配端口
     while server_info.port is None:
         time.sleep(0.1)
 
-    websocket_port = server_info.port  # 选择一个适合您应用的端口号
+    websocket_port = server_info.port
 
     api = Api()
     chinese = {'global.quitConfirmation': '确定关闭?'}
@@ -372,7 +358,6 @@ def main():
     window = webview.create_window(
         '文件拷贝校验工具',
         f'static/index.html?port={websocket_port}',
-        
         js_api=api,
         width=1000,
         height=750,
@@ -381,7 +366,7 @@ def main():
         confirm_close=True,
         localization=chinese
     )
-
+    
     webview.start(http_server=False, gui='edgechromium', debug=True, private_mode=True)
 
     sys.exit(0)

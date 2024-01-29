@@ -266,11 +266,14 @@
 
                 const checkPyWebView = setInterval(() => {
                     if (typeof pywebview !== 'undefined') {
-                        clearInterval(checkPyWebView);  // 清除定时器
-                        this.initApp();  // 初始化应用
-                        this.connectWebSocket(); // 建立WebSocket连接
+                        console.log("pywebview is available.");
+                        clearInterval(checkPyWebView);
+                        this.initApp();
+                        this.connectWebSocket();
+                    } else {
+                        console.log("Waiting for pywebview...");
                     }
-                }, 100);  // 每100毫秒检查一次
+                }, 100);
 
 
             },
@@ -500,43 +503,45 @@
                     }
                 },
 
-                selectFolder() {
-                    pywebview.api.select_folder().then(response => {
-                        pywebview.api.print_selected_folder(response)
-                            .then(() => console.log('Folder path sent to Python'))
-                            .catch(error => console.error('Error sending folder path to Python:', error));
-                    })
-                        .catch(error => console.error('Error selecting folder:', error));
-                },
+                // 选择源文件夹的逻辑
                 selectSourceFolder() {
-                    pywebview.api.select_folder().then(response => {
-                        this.sourceFolderPath = response;
-                    }).catch(error => console.error('Error selecting source folder:', error));
+                    console.log("Attempting to select source folder...");
+                    if (typeof pywebview !== 'undefined') {
+                        pywebview.api.select_folder().then(folderPath => {
+                            console.log("Source folder selected:", folderPath);
+                            if (folderPath) {
+                                this.sourceFolderPath = folderPath;
+                            }
+                        }).catch(error => {
+                            console.error('Error selecting source folder:', error);
+                            // 可以在这里添加更多的错误处理逻辑
+                        });
+                    } else {
+                        console.error("pywebview is not available when selecting source folder.");
+                        // 可以在这里添加更多的错误处理逻辑
+                    }
                 },
 
                 selectTargetPath() {
-                    pywebview.api.select_folder().then(response => {
-                        if (this.isSubdirectory(this.sourceFolderPath, response)) {
-                            this.showError('目标路径不能是源路径的子目录');
-                            return;
-                        }
-
-                        this.checkTargetFolderEmpty(response).then(isEmpty => {
-                            if (!isEmpty) {
-                                this.showError('目标文件夹不为空');
-                                return;
+                    console.log("Attempting to select target path...");
+                    if (typeof pywebview !== 'undefined') {
+                        pywebview.api.select_folder().then(folderPath => {
+                            console.log("Target path selected:", folderPath);
+                            if (folderPath) {
+                                this.checkTargetFolderEmpty(folderPath).then(isEmpty => {
+                                    if (!isEmpty) {
+                                        this.showError('目标文件夹不为空');
+                                        return;
+                                    }
+                                    this.targetFolderPath = folderPath;
+                                });
                             }
-                            this.targetFolderPath = response;
+                        }).catch(error => {
+                            console.error('Error selecting target path:', error);
                         });
-                    }).catch(error => console.error('Error selecting target path:', error));
-                },
-
-                isSubdirectory(sourcePath, targetPath) {
-                    if (!sourcePath || !targetPath) return false;
-                    // 格式化路径，确保以斜杠结束
-                    let formattedSourcePath = sourcePath.replace(/\\/g, '/').replace(/\/?$/, "/");
-                    let formattedTargetPath = targetPath.replace(/\\/g, '/').replace(/\/?$/, "/");
-                    return formattedTargetPath.startsWith(formattedSourcePath);
+                    } else {
+                        console.error("pywebview is not available when selecting target path.");
+                    }
                 },
 
                 checkTargetFolderEmpty(targetPath) {
