@@ -94,7 +94,7 @@
                             <div class="pathPreviewTitle">路径预览：[目标路径+项目名称]</div>
 
                             <div v-if="targetFolderPath">
-                                {{ targetFolderPath + '/' + selectedProjectDetails.projectName }}
+                                {{ targetFolderPath + osSeparator + selectedProjectDetails.projectName }}
                             </div>
                             <div v-else style="height: 1rem;"></div>
                         </div>
@@ -258,6 +258,8 @@
                     ws: null,  // WebSocket对象
                     wsMessage: '', // 用于存储从WebSocket接收到的时间
                     showMessage: false, // 控制消息弹窗的显示
+
+                    osSeparator: this.getOsSeparator(), //根据目标系统设置路径分隔符
                 };
             },
 
@@ -392,6 +394,16 @@
                     });
                 },
 
+                // 根据当前操作系统返回路径分隔符
+                getOsSeparator() {
+                    const platform = navigator.platform.toLowerCase();
+                    if (platform.includes('win')) {
+                        return '\\';
+                    } else {
+                        return '/';
+                    }
+                },
+
                 selectProject(projectID) {
                     this.selectedProjectID = projectID;
                     pywebview.api.get_project_details(projectID).then(details => {
@@ -423,15 +435,14 @@
                 addTask() {
                     if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
                         const taskId = Date.now().toString(); // 使用当前时间戳作为任务ID
-                        const sourceFolderName = this.sourceFolderPath.split('/').pop() || this.sourceFolderPath.split('\\').pop(); // 获取源文件夹的文件夹名
+                        const sourceFolderName = this.sourceFolderPath.split(this.osSeparator).pop(); // 获取源文件夹的文件夹名
                         const newTask = {
                             taskId: taskId,
                             taskName: sourceFolderName, // 使用源文件夹的名字作为任务名称
                             taskStatus: '未开始',
                             creationTime: new Date().toISOString(),
                             sourceDirectory: this.sourceFolderPath,
-                            // 修改 targetDirectory 为 targetFolderPath + projectName + taskName
-                            targetDirectory: this.targetFolderPath + '/' + this.selectedProjectDetails.projectName + '/' + sourceFolderName,
+                            targetDirectory: [this.targetFolderPath, this.selectedProjectDetails.projectName, sourceFolderName].join(this.osSeparator),
                             copyMode: this.selectedCopyMode
                         };
 
@@ -509,12 +520,13 @@
                     if (typeof pywebview !== 'undefined') {
                         pywebview.api.select_folder().then(folderPath => {
                             console.log("Source folder selected:", folderPath);
-                            if (folderPath) {
-                                this.sourceFolderPath = folderPath;
+                            if (folderPath && folderPath.length > 0) {
+                                // 如果folderPath是列表，则取第一个元素
+                                const sourcePath = Array.isArray(folderPath) ? folderPath[0] : folderPath;
+                                this.sourceFolderPath = sourcePath;
                             }
                         }).catch(error => {
                             console.error('Error selecting source folder:', error);
-                            // 可以在这里添加更多的错误处理逻辑
                         });
                     } else {
                         console.error("pywebview is not available when selecting source folder.");
@@ -527,13 +539,15 @@
                     if (typeof pywebview !== 'undefined') {
                         pywebview.api.select_folder().then(folderPath => {
                             console.log("Target path selected:", folderPath);
-                            if (folderPath) {
-                                this.checkTargetFolderEmpty(folderPath).then(isEmpty => {
+                            if (folderPath && folderPath.length > 0) {
+                                // 如果folderPath是列表，则取第一个元素
+                                const targetPath = Array.isArray(folderPath) ? folderPath[0] : folderPath;
+                                this.checkTargetFolderEmpty(targetPath).then(isEmpty => {
                                     if (!isEmpty) {
                                         this.showError('目标文件夹不为空');
                                         return;
                                     }
-                                    this.targetFolderPath = folderPath;
+                                    this.targetFolderPath = targetPath;
                                 });
                             }
                         }).catch(error => {
