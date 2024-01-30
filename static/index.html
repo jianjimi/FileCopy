@@ -349,6 +349,24 @@
                         }
                     });
                 },
+                fetchProjectsList() {
+                    return new Promise((resolve, reject) => {
+                        if (typeof pywebview !== 'undefined') {
+                            pywebview.api.get_projects_list().then(projectsList => {
+                                console.log("Fetched projects list:", projectsList);  // 打印获取到的项目列表
+                                this.projects = projectsList.projects.reverse();
+                                resolve();
+                            }).catch(error => {
+                                console.error('Error fetching projects list:', error);
+                                reject(error);
+                            });
+                        } else {
+                            console.error('pywebview is not defined');
+                            reject('pywebview is not defined');
+                        }
+                    });
+                },
+
                 showPopup(popup) {
                     // 方法的实现逻辑
                     if (popup === 'popup1') {
@@ -377,22 +395,7 @@
 
                 },
 
-                fetchProjectsList() {
-                    return new Promise((resolve, reject) => {
-                        if (typeof pywebview !== 'undefined') {
-                            pywebview.api.get_projects_list().then(projectsList => {
-                                this.projects = projectsList.projects.reverse();
-                                resolve();
-                            }).catch(error => {
-                                console.error('Error fetching projects list:', error);
-                                reject(error);
-                            });
-                        } else {
-                            console.error('pywebview is not defined');
-                            reject('pywebview is not defined');
-                        }
-                    });
-                },
+                
 
                 // 根据当前操作系统返回路径分隔符
                 getOsSeparator() {
@@ -433,18 +436,20 @@
                 },
 
                 addTask() {
-                    if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
-                        const taskId = Date.now().toString(); // 使用当前时间戳作为任务ID
-                        const sourceFolderName = this.sourceFolderPath.split(this.osSeparator).pop(); // 获取源文件夹的文件夹名
-                        const newTask = {
-                            taskId: taskId,
-                            taskName: sourceFolderName, // 使用源文件夹的名字作为任务名称
-                            taskStatus: '未开始',
-                            creationTime: new Date().toISOString(),
-                            sourceDirectory: this.sourceFolderPath,
-                            targetDirectory: [this.targetFolderPath, this.selectedProjectDetails.projectName, sourceFolderName].join(this.osSeparator),
-                            copyMode: this.selectedCopyMode
-                        };
+                        if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
+                            const taskId = Date.now().toString();  // 使用当前时间戳作为任务ID
+                            const sourceFolderName = this.sourceFolderPath.split(this.osSeparator).pop();  // 获取源文件夹的文件夹名
+                            const newTask = {
+                                taskId: taskId,
+                                taskName: sourceFolderName,  // 使用源文件夹的名字作为任务名称
+                                sourcePath: this.sourceFolderPath,
+                                destinationPath: [this.targetFolderPath, this.selectedProjectDetails.projectName, sourceFolderName].join(this.osSeparator),
+                                copyStatus: '未开始',  // 初始拷贝状态
+                                verificationMethod: '',  // 校验方式
+                                verificationStatus: '未校验',  // 初始校验状态
+                                fileSize: 0,  // 文件大小
+                                fileCount: 0  // 文件数量
+                            };
 
                         pywebview.api.add_task_to_project(this.selectedProjectID, newTask)
                             .then(() => {

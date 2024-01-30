@@ -12,6 +12,10 @@ import time
 import sys
 
 import subprocess
+import sqlite3
+
+
+
 
 global window
 
@@ -93,109 +97,186 @@ def close_server(stop_event):
 
 
 class Api:
-    
+
     def __init__(self):
-        self.data_folder = 'data'
-        self.projects_folder = 'data/projects'
-        self.projects_list_file = 'data/projectslist.json'
-        self.init_app_data()
+        self.database_file = 'filecopy.db'
+        self.init_database()
         self.copy_statuses = {}  # 用于跟踪拷贝任务的状态
 
-    def init_app_data(self):
-        # 创建data文件夹和projects文件夹（如果不存在）
-        os.makedirs(self.data_folder, exist_ok=True)
-        os.makedirs(self.projects_folder, exist_ok=True)
+    def init_database(self):
+        # 连接到SQLite数据库
+        conn = sqlite3.connect(self.database_file)
 
-        # 检查是否需要创建默认项目
-        if not os.path.exists(self.projects_list_file):
-            default_project = {
-                "projectID": "default",
-                "projectName": "默认项目"
-            }
-            projects_list = {"projects": [default_project]}
-            with open(self.projects_list_file, 'w') as file:
-                json.dump(projects_list, file, indent=4)
+        # 创建一个cursor对象
+        cursor = conn.cursor()
 
-            default_project_file = f'{self.projects_folder}/default.json'
-            default_project_data = {
-                "projectID": "default",
-                "projectName": "默认项目",
-                "tasks": []
-            }
-            with open(default_project_file, 'w') as file:
-                json.dump(default_project_data, file, indent=4)
+        # 创建Projects表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Projects (
+            project_id INTEGER PRIMARY KEY,
+            project_name TEXT,
+            creation_time DATETIME,
+            project_status TEXT
+        )
+        ''')
+
+        # 创建Tasks表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Tasks (
+            task_id INTEGER PRIMARY KEY,
+            project_id INTEGER,
+            task_name TEXT,
+            source_path TEXT,
+            destination_path TEXT,
+            creation_time DATETIME,
+            start_time DATETIME,
+            end_time DATETIME,
+            copy_status TEXT,
+            verification_method TEXT,
+            verification_status TEXT,
+            file_size INTEGER,
+            file_count INTEGER,
+            FOREIGN KEY (project_id) REFERENCES Projects(project_id)
+        )
+        ''')
+
+        # 创建Queue表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Queue (
+            queue_id INTEGER PRIMARY KEY,
+            task_id INTEGER,
+            queue_order INTEGER,
+            creation_time DATETIME,
+            start_time DATETIME,
+            end_time DATETIME,
+            queue_status TEXT,
+            FOREIGN KEY (task_id) REFERENCES Tasks(task_id)
+        )
+        ''')
+
+        # 创建Task Logs表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Task_Logs (
+            log_id INTEGER PRIMARY KEY,
+            task_id INTEGER,
+            project_id INTEGER,
+            status TEXT,
+            source_directory TEXT,
+            destination_directory TEXT,
+            file_size INTEGER,
+            md5_value TEXT,
+            xxhash_value TEXT,
+            first_frame TEXT,
+            middle_frame TEXT,
+            last_frame TEXT,
+            resolution TEXT,
+            format TEXT,
+            frame_rate TEXT,
+            FOREIGN KEY (task_id) REFERENCES Tasks(task_id),
+            FOREIGN KEY (project_id) REFERENCES Projects(project_id)
+        )
+        ''')
+
+        # 创建Messages表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Messages (
+            message_id INTEGER PRIMARY KEY,
+            task_id INTEGER,
+            message_type TEXT,
+            message_content TEXT,
+            creation_time DATETIME,
+            FOREIGN KEY (task_id) REFERENCES Tasks(task_id)
+        )
+        ''')
+
+        # 插入默认项目（如果需要）
+        cursor.execute("SELECT COUNT(*) FROM Projects")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("INSERT INTO Projects (project_name, creation_time, project_status) VALUES (?, ?, ?)", ("默认项目", datetime.now(), "未拷贝"))
+
+        # 提交事务
+        conn.commit()
+
+        # 关闭连接
+        conn.close()
+
+
 
     def add_task_to_project(self, project_id, task):
-        project_file = f'{self.projects_folder}/{project_id}.JSON'
-        if os.path.exists(project_file):
-            with open(project_file, 'r') as file:
-                project_data = json.load(file)
-            
-            # 添加任务创建时间和校验状态
-            task['copyStatus'] = '开始拷贝'  # 初始状态
-            task['creationTime'] = datetime.now().timestamp()  # 创建时间戳
-            task['verificationStatus'] = '未校验'  # 校验状态初始设置为 '未校验'
-            project_data['tasks'].append(task)
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
 
-            with open(project_file, 'w') as file:
-                json.dump(project_data, file, indent=4)
-            
-            return "Task added successfully"
-        else:
+        # 检查项目是否存在
+        cursor.execute("SELECT * FROM Projects WHERE project_id=?", (project_id,))
+        if cursor.fetchone() is None:
+            conn.close()
             return "Project not found"
+
+        # 添加任务到数据库
+        cursor.execute('''
+            INSERT INTO Tasks (project_id, task_name, source_path, destination_path, creation_time, start_time, end_time, copy_status, verification_method, verification_status, file_size, file_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (project_id, task['taskName'], task['sourcePath'], task['destinationPath'], datetime.now(), None, None, '未开始', task['verificationMethod'], '未校验', task['fileSize'], task['fileCount']))
+        
+        conn.commit()
+        conn.close()
+        return "Task added successfully"
+
+
         
     def update_task_status(self, project_id, task_id, new_status):
-        project_file = f'{self.projects_folder}/{project_id}.JSON'
-        if os.path.exists(project_file):
-            with open(project_file, 'r') as file:
-                project_data = json.load(file)
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
 
-            for task in project_data['tasks']:
-                if task['taskId'] == task_id:
-                    task['copyStatus'] = new_status
-                    break
+        cursor.execute('''
+            UPDATE tasks SET task_status = ? WHERE project_id = ? AND id = ?
+        ''', (new_status, project_id, task_id))
 
-            with open(project_file, 'w') as file:
-                json.dump(project_data, file, indent=4)
-            return "Task status updated successfully"
-        else:
-            return "Project not found"
+        conn.commit()
+        conn.close()
+        return "Task status updated successfully"
+
         
     def get_project_details(self, project_id):
-        project_file = f'{self.projects_folder}/{project_id}.JSON'
-        if os.path.exists(project_file):
-            with open(project_file, 'r') as file:
-                project_details = json.load(file)
-                return project_details
-        else:
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM Projects WHERE project_id=?", (project_id,))
+        project = cursor.fetchone()
+
+        if project is None:
+            conn.close()
             return {"error": "Project not found"}
+
+        cursor.execute("SELECT * FROM Tasks WHERE project_id=?", (project_id,))
+        tasks = [{'taskId': row[0], 'project_id': row[1], 'taskName': row[2], 'sourcePath': row[3], 'destinationPath': row[4], 'creationTime': row[5], 'startTime': row[6], 'endTime': row[7], 'copyStatus': row[8], 'verificationMethod': row[9], 'verificationStatus': row[10], 'fileSize': row[11], 'fileCount': row[12]} for row in cursor.fetchall()]
+
+        project_details = {
+            "projectID": project[0],
+            "projectName": project[1],
+            "creationTime": project[2],
+            "projectStatus": project[3],
+            "tasks": tasks
+        }
+
+        conn.close()
+        return project_details
+
+
         
     def save_project(self, project_name):
-        project_id = str(int(datetime.now().timestamp() * 1000))
-        new_project = {
-            "projectID": project_id,
-            "projectName": project_name
-        }
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
 
-        # 加载现有项目列表
-        with open(self.projects_list_file, 'r') as file:
-            projects_list = json.load(file)
+        # 添加新项目
+        cursor.execute('''
+            INSERT INTO Projects (project_name, creation_time, project_status)
+            VALUES (?, ?, ?)
+        ''', (project_name, datetime.datetime.now(), '未拷贝'))
+        project_id = cursor.lastrowid
 
-        # 更新项目列表
-        projects_list["projects"].append(new_project)
-        with open(self.projects_list_file, 'w') as file:
-            json.dump(projects_list, file, indent=4)
-
-        # 创建新项目的文件
-        new_project_data = {
-            "projectID": project_id,
-            "projectName": project_name,
-            "tasks": []
-        }
-
-        new_project_file = f'{self.projects_folder}/{project_id}.json'
-        with open(new_project_file, 'w') as file:
-            json.dump(new_project_data, file, indent=4)
+        conn.commit()
+        conn.close()
 
         # 发送 WebSocket 消息通知项目已添加
         add_message = f"Project '{project_name}' (ID: {project_id}) has been added."
@@ -203,14 +284,29 @@ class Api:
 
         return project_id
 
+
+
     def get_projects_list(self):
-        if os.path.exists(self.projects_list_file):
-            with open(self.projects_list_file, 'r') as file:
-                projects_list = json.load(file)
-                return projects_list
-        else:
-            return {"projects": []}
-    
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM projects")
+        rows = cursor.fetchall()
+
+        # 将每行数据转换为字典
+        projects = []
+        for row in rows:
+            project = {
+                "projectID": row[0],
+                "projectName": row[1],
+                "description": row[2],
+                # 添加其他字段...
+            }
+            projects.append(project)
+
+        conn.close()
+        return {"projects": projects}
+
     def select_folder(self):
         result = window.create_file_dialog(
             webview.FOLDER_DIALOG, allow_multiple=False
@@ -220,62 +316,45 @@ class Api:
         return result
 
 
-
-
     def print_selected_folder(self, folder_path):
         message = f"Selected folder: {folder_path}"
         print(message)
         # message_queue.put(message)  # 将消息放入队列
 
     def delete_project(self, project_id):
-        # 删除项目列表中的对应项目
-        project_list_path = self.projects_list_file
-        project_deleted = False
-        project_name = None
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
 
-        if os.path.exists(project_list_path):
-            with open(project_list_path, 'r') as file:
-                projects_list = json.load(file)
-            for project in projects_list['projects']:
-                if project['projectID'] == project_id:
-                    project_name = project['projectName']
-                    break
-            projects_list['projects'] = [p for p in projects_list['projects'] if p['projectID'] != project_id]
-            with open(project_list_path, 'w') as file:
-                json.dump(projects_list, file, indent=4)
-            project_deleted = True
-
-        # 删除对应的项目详情文件
-        project_detail_file = f'{self.projects_folder}/{project_id}.JSON'
-        if os.path.exists(project_detail_file):
-            os.remove(project_detail_file)
-            project_deleted = True
-
-        # 发送 WebSocket 消息通知项目已删除
-        if project_deleted and project_name:
-            delete_message = f"Project '{project_name}' (ID: {project_id}) has been deleted."
-            message_queue.put(delete_message)
-            return delete_message
-        else:
+        # 检查项目是否存在
+        cursor.execute("SELECT name FROM projects WHERE id=?", (project_id,))
+        project = cursor.fetchone()
+        if project is None:
+            conn.close()
             return "Project not found or already deleted."
+
+        # 删除项目
+        cursor.execute("DELETE FROM projects WHERE id=?", (project_id,))
+        conn.commit()
+        conn.close()
+
+        delete_message = f"Project '{project[0]}' (ID: {project_id}) has been deleted."
+        message_queue.put(delete_message)
+        return delete_message
+
         
     def delete_task(self, project_id, task_id):
-        project_file = f'{self.projects_folder}/{project_id}.json'
-        if os.path.exists(project_file):
-            with open(project_file, 'r') as file:
-                project_data = json.load(file)
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
 
-            # 过滤掉要删除的任务
-            project_data['tasks'] = [task for task in project_data['tasks'] if task['taskId'] != task_id]
+        # 删除任务
+        cursor.execute("DELETE FROM tasks WHERE project_id=? AND id=?", (project_id, task_id))
+        conn.commit()
+        conn.close()
 
-            # 重新写入更新后的项目数据
-            with open(project_file, 'w') as file:
-                json.dump(project_data, file, indent=4)
-                message = f"任务 {task_id} 已被删除。"
-                message_queue.put(message)
-            return True
-        else:
-            return False
+        message = f"任务 {task_id} 已被删除。"
+        message_queue.put(message)
+        return True
+
 
     
 
@@ -310,12 +389,20 @@ class Api:
 
 
     def get_copy_status(self, taskId):
-        # 获取指定任务的拷贝状态
-        return self.copy_statuses.get(taskId, "未知任务")
+        conn = sqlite3.connect(self.database_file)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT task_status FROM tasks WHERE id=?", (taskId,))
+        status = cursor.fetchone()
+        conn.close()
+
+        return status[0] if status else "未知任务"
+
 
     def send_copy_status_to_html(self, taskId, status):
         message = f"任务 {taskId} 状态: {status}"
         message_queue.put(message)  # 将消息放入队列
+
 
     def pause_copy(self, task_id):
         # 实现暂停拷贝的逻辑
