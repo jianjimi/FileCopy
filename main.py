@@ -15,8 +15,6 @@ import subprocess
 import sqlite3
 
 
-
-
 global window
 
 # 全局变量
@@ -359,58 +357,119 @@ class Api:
 
     
 
-    def start_copy(self, projectID, taskId, sourcePath, destinationPath):
+    def start_copy(self, projectID, taskId):
         try:
-            # 开始拷贝
-            self.update_task_status(projectID, taskId, "拷贝中")
-            message = f"任务状态更新：开始拷贝任务 {taskId}，从 {sourcePath} 到 {destinationPath}"
-            print(message)
-            message_queue.put(message)
+            conn = sqlite3.connect(self.database_file)
+            cursor = conn.cursor()
 
-            # 执行文件拷贝
-            shutil.copytree(sourcePath, destinationPath)
+            # 获取任务的源路径和目标路径
+            cursor.execute("SELECT source_path, destination_path FROM Tasks WHERE task_id = ?", (taskId,))
+            task = cursor.fetchone()
+            if task:
+                sourcePath, destinationPath = task
 
-            # 拷贝完成，更新状态为"已完成"
-            self.update_task_status(projectID, taskId, "已完成")
-            message = f"任务状态更新：任务 {taskId} 拷贝完成"
-            print(message)
-            message_queue.put(message)
+
+
+                # 设置状态为"扫描中"并更新数据库
+                self.update_task_status(projectID, taskId, "扫描中")
+                
+                message = f"任务状态更新：任务 {taskId} 扫描中"
+                print(message)
+                message_queue.put(message)
+
+                fileSize, fileCount = self.scan_folder(sourcePath)  # 扫描文件夹大小和文件数量
+                cursor.execute('''
+                    UPDATE Tasks 
+                    SET file_size = ?, file_count = ?, start_time = CURRENT_TIMESTAMP
+                    WHERE task_id = ?
+                ''', (fileSize, fileCount, taskId))
+                conn.commit()
+
+
+
+                # 开始拷贝
+                self.update_task_status(projectID, taskId, "拷贝中")
+                
+                message = f"任务状态更新：任务 {taskId} 拷贝中"
+                print(message)
+                message_queue.put(message)
+
+                shutil.copytree(sourcePath, destinationPath)
+
+
+
+
+                self.update_task_status(projectID, taskId, "已完成")
+
+                # 更新结束时间
+                cursor.execute('''
+                    UPDATE Tasks
+                    SET end_time = CURRENT_TIMESTAMP
+                    WHERE task_id = ?
+                ''', (taskId,))
+                conn.commit()
+
+                message = f"任务状态更新：任务 {taskId} 拷贝完成"
+                print(message)
+                message_queue.put(message)
+
+            else:
+                raise Exception("Task not found")
 
             return "拷贝完成"
         except Exception as e:
-            # 拷贝出错，更新状态为"出错"
             self.update_task_status(projectID, taskId, "出错")
             message = f"任务状态更新：任务 {taskId} 拷贝出错: {str(e)}"
             print(message)
             message_queue.put(message)
-
             return f"拷贝出错: {str(e)}"
+        finally:
+            conn.close()
 
 
+    def scan_folder(self, path):
+        total_size = 0
+        file_count = 0
 
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if os.path.isfile(file_path):
+                    total_size += os.path.getsize(file_path)
+                    file_count += 1
 
-    def get_copy_status(self, taskId):
-        conn = sqlite3.connect(self.database_file)
-        cursor = conn.cursor()
+        message = f"任务状态更新：扫描文件夹: {path}, 总大小: {total_size}, 文件数量: {file_count}"
+        print(message)
+        message_queue.put(message)
+        return total_size, file_count
 
-        cursor.execute("SELECT task_status FROM tasks WHERE id=?", (taskId,))
-        status = cursor.fetchone()
-        conn.close()
-
-        return status[0] if status else "未知任务"
-
-
-    def send_copy_status_to_html(self, taskId, status):
-        message = f"任务 {taskId} 状态: {status}"
-        message_queue.put(message)  # 将消息放入队列
 
 
     def pause_copy(self, task_id):
-        # 实现暂停拷贝的逻辑
-        message = f"暂停拷贝任务 {task_id}"
-        message_queue.put(message)  # 将消息放入队列
-        # 此处添加暂停逻辑
-        return "拷贝暂停"
+        try:
+            # 连接到数据库
+            conn = sqlite3.connect(self.database_file)
+            cursor = conn.cursor()
+
+            # 更新任务状态为"暂停"
+            cursor.execute('''
+                UPDATE Tasks SET task_status = '暂停' WHERE task_id = ?
+            ''', (task_id,))
+            conn.commit()
+
+            message = f"任务状态更新：任务 {task_id} 暂停拷贝"
+            print(message)  # 打印任务暂停的调试信息
+            message_queue.put(message)
+
+            return "拷贝暂停"
+        except Exception as e:
+            message = f"暂停拷贝时出错: {str(e)}"
+            print(message)  # 打印错误信息
+            message_queue.put(message)
+            return f"暂停出错: {str(e)}"
+        finally:
+            conn.close()
+
     
     def check_folder_empty(self, folder_path):
         try:
@@ -447,9 +506,9 @@ def main():
         '文件拷贝校验工具',
         f'static/index.html?port={websocket_port}',
         js_api=api,
-        width=1000,
+        width=1100,
         height=750,
-        resizable=False,
+        resizable=True,
         fullscreen=False,
         confirm_close=True,
         localization=chinese

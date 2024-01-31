@@ -44,7 +44,7 @@
 
                     <p style="padding: 0 10px;margin: 10px;font-weight: 600;">项目列表</p>
 
-                    <button class="add-project-btn" @click="showPopup('popup1')">+</button>
+                    <button class="add-project-btn" @click="showPopup('popup1')"><img src="img/addproject.png">新建项目</button>
 
                 </div>
                 <div class="project-list">
@@ -100,19 +100,16 @@
                         </div>
 
                         <div class="copy-mode">
-                           <div class="copyModeTitle">【开发中...】拷贝模式：</div>
-                           <div>◉拷贝+校验(XXHASH) ◉拷贝+校验(md5) ◉只拷贝不校验</div>
-                            <!-- <label>
-                                    <input type="radio" name="copy-mode" value="XXHASH" v-model="selectedCopyMode">
-                                    拷贝+校验(XXHASH)
-                                </label>
-                                <label>
-                                    <input type="radio" name="copy-mode" value="MD5" v-model="selectedCopyMode">
-                                    拷贝+校验(md5)
-                                </label>
-                                <label>
-                                    <input type="radio" name="copy-mode" value="COPY" v-model="selectedCopyMode"> 只拷贝不校验
-                                </label> -->
+                            <div class="copyModeTitle">拷贝模式：</div>
+                            <label>
+                                <input type="radio" name="copy-mode" value="XXHASH" v-model="selectedCopyMode"> 拷贝+校验(XXHASH)
+                            </label>
+                            <label>
+                                <input type="radio" name="copy-mode" value="MD5" v-model="selectedCopyMode"> 拷贝+校验(md5)
+                            </label>
+                            <label>
+                                <input type="radio" name="copy-mode" value="COPY" v-model="selectedCopyMode"> 只拷贝不校验
+                            </label>
                         </div>
                     </div>
 
@@ -143,16 +140,16 @@
                         <!-- <div>Task Debug: {{ task }}</div> -->
 
                         <div class="task-detail" :style="{ backgroundColor: getBackgroundColor(task.copyStatus) }">
-                            <button v-if="task.copyStatus !== '已完成'"
-                                @click="toggleCopy(selectedProjectDetails.projectID, task.taskId, task.sourcePath, task.destinationPath)">
+                            <button v-if="task.copyStatus !== '已完成'" @click="toggleCopy(selectedProjectDetails.projectID, task.taskId)">
                                 <span>{{ task.copyStatus }}</span>
                             </button>
+                            
                             <span v-else>{{ task.copyStatus }}</span>
 
                             
                             任务名称：{{ task.taskName }}
 
-
+                            创建时间：{{ task.creationTime }}
                             <div style="position: absolute; right: 10px; top: 10px;" @click="deleteTask(task.taskId)">
                                 <img style="width: 20px;" src="img/deltask.png">
                             </div>
@@ -169,11 +166,16 @@
                                     <div style="display: flex;">
                                         <div style="margin: 10px;width: 160px; border-right: 2px solid #d22222;">
                                             <div>拷贝状态:{{ task.copyStatus }} </div>
-                                            <div>创建时间：{{ formatDuration(task.creationTime) }}</div>
+                                            <div></div>
                                         </div>
                                         <div style="margin: 10px;width: 160px; padding-left: 10px;">
                                             <div>校验</div>
                                             <div>{{ task.verificationStatus }}</div>
+                                        </div>
+                                        
+                                        <div style="margin: 10px;width: 160px; padding-left: 10px;border-left: 2px solid #d22222;">
+                                            <div>开始时间：{{ task.startTime }}</div>
+                                            <div>完成时间：{{ task.endTime }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -324,27 +326,6 @@
                 },
 
 
-                checkCopyStatus(taskId) {
-                    pywebview.api.get_copy_status(taskId).then(status => {
-                        console.log(`任务 ${taskId} 当前状态: ${status}`); // 添加日志记录
-                        this.taskStatuses[taskId] = status; // 更新状态
-
-                        // 如果状态是“出错”，则停止定时器
-                        if (status === '出错') {
-                            this.clearTaskTimer(taskId);
-                        }
-                        if (status === '完成') {
-                            this.clearTaskTimer(taskId);
-                        }
-
-                    }).catch(error => {
-                        console.error('检查拷贝状态时出错:', error);
-                        // 如果在检查状态时出现异常，也停止定时器
-                        this.clearTaskTimer(taskId);
-                    });
-                },
-
-
                 initApp() {
                     // console.log("initApp called");  // 打印提示信息
                     this.fetchProjectsList().then(() => {
@@ -455,7 +436,7 @@
                 },
 
                 addTask() {
-                    console.log("addTask called"); // 打印调试信息
+                    // console.log("addTask called"); // 打印调试信息
                     if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
                         const taskId = Date.now().toString();  // 使用当前时间戳作为任务ID
                         const sourceFolderName = this.sourceFolderPath.split(this.osSeparator).pop();  // 获取源文件夹的文件夹名
@@ -465,13 +446,13 @@
                             sourcePath: this.sourceFolderPath,
                             destinationPath: [this.targetFolderPath, this.selectedProjectDetails.projectName, sourceFolderName].join(this.osSeparator),
                             copyStatus: '未开始',  // 初始拷贝状态
-                            verificationMethod: '',  // 校验方式
+                            verificationMethod: this.selectedCopyMode,  // 添加选择的拷贝模式
                             verificationStatus: '未校验',  // 初始校验状态
                             fileSize: 0,  // 文件大小
                             fileCount: 0  // 文件数量
                         };
 
-                        console.log("New task to add:", newTask); // 打印新任务的详细信息
+                        // console.log("New task to add:", newTask); // 打印新任务的详细信息
 
                         pywebview.api.add_task_to_project(this.selectedProjectID, newTask)
                             .then(() => {
@@ -490,13 +471,6 @@
                     }
                 },
 
-                formatDuration(creationTime) {
-                    const now = Date.now() / 1000;  // 当前时间戳（秒）
-                    const duration = now - creationTime;  // 持续时间（秒）
-                    const minutes = Math.floor(duration / 60);
-                    const seconds = Math.floor(duration % 60);
-                    return `${minutes}分${seconds}秒`;
-                },
                 pathPreview() {
                     if (!this.targetFolderPath || !this.selectedProjectDetails) return '';
 
@@ -608,36 +582,34 @@
                 },
 
 
-                toggleCopy(projectID, taskId, sourcePath, destinationPath) {
+                toggleCopy(projectID, taskId) {
+                    console.log("Toggle copy for task:", taskId);  // 打印任务切换的调试信息
+
                     if (this.taskStatuses[taskId] === '已完成') {
-                        return; // 如果任务已完成，则不执行任何操作
+                        console.log("Task already completed:", taskId);  // 打印任务已完成的调试信息
+                        return;  // 如果任务已完成，则不执行任何操作
                     }
                     if (this.taskStatuses[taskId] !== '拷贝中') {
+                        console.log("Starting copy for task:", taskId);  // 打印开始拷贝的调试信息
                         // 开始拷贝
-                        pywebview.api.start_copy(projectID, taskId, sourcePath, destinationPath).then(() => {
-                            // 状态更新将在 start_copy 方法中完成
-                            // this.setTaskTimer(taskId); // 如果需要，启用定时器
+                        pywebview.api.start_copy(projectID, taskId).then(() => {
+                            console.log("Copy started for task:", taskId);  // 打印拷贝开始的调试信息
                         }).catch(error => {
                             console.error('开始拷贝时出错:', error);
                         });
                     } else {
+                        console.log("Pausing copy for task:", taskId);  // 打印暂停拷贝的调试信息
                         // 暂停拷贝
-                        pywebview.api.stop_copy(taskId).then(() => {
-                            // 状态更新将在 stop_copy 方法中完成
-                            this.clearTaskTimer(taskId);
-                        }).catch(error => console.error('暂停拷贝时出错:', error));
+                        pywebview.api.pause_copy(taskId).then(() => {
+                            console.log("Copy paused for task:", taskId);  // 打印拷贝暂停的调试信息
+                            this.clearTaskTimer(taskId);  // 清除与任务相关的定时器
+                        }).catch(error => {
+                            console.error('暂停拷贝时出错:', error);
+                        });
                     }
                 },
 
-                updateTaskStatusInJson(projectID, taskId, newStatus) {
-                    pywebview.api.update_task_status(projectID, taskId, newStatus)
-                        .then(() => {
-                            this.selectProject(projectID); // 重新加载项目数据以更新视图
-                        })
-                        .catch(error => {
-                            console.error('Error updating task status in JSON:', error);
-                        });
-                },
+
 
                 openTargetDirectory(destinationPath) {
                     pywebview.api.open_directory(destinationPath).catch(error => {
@@ -645,33 +617,19 @@
                     });
                 },
 
-                // 设置与特定任务关联的定时器
-                setTaskTimer(taskId) {
-                    this.taskTimers[taskId] = setInterval(() => {
-                        //console.log(`每秒一次`);
-                        this.checkCopyStatus(taskId);
-                    }, 1000); // 每秒检查一次
-                },
-                // 清除与特定任务关联的定时器
-                clearTaskTimer(taskId) {
-                    if (this.taskTimers[taskId]) {
-                        clearInterval(this.taskTimers[taskId]);
-                        delete this.taskTimers[taskId];
-                    }
-                },
                 
                 getBackgroundColor(copyStatus) {
                     switch (copyStatus) {
                         case '已完成':
                         return 'green';
                         case '拷贝中':
-                        return 'white';
+                        return 'yellow';
                         case '开始拷贝':
                         return 'blue';
                         case '出错':
                         return 'red';
                         default:
-                        return 'transparent'; // 默认颜色
+                        return 'balck'; // 默认颜色
                     }
                     },
 

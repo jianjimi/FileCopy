@@ -33,8 +33,13 @@ body {
     transition: background-color 0.1s, color 0.3s;
     border-radius: 999px;
     border: 0;
-}
+    display: flex;
 
+}
+button.add-project-btn img {
+    max-width: 20px;
+    display: flex;
+}
 .add-project-btn:focus {
     background-color: rgb(0 102 255 / 95%);
     color: #ffffff;
@@ -217,6 +222,17 @@ button.create-report:hover {
     background-color: #3a2dff;
     border-radius: 5px 5px 0 0;
     position: relative;
+}
+.task-detail button {
+    background: #faf0e600;
+    border: 0;
+}
+.task-detail span {
+    color: green;
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 0.8rem;
 }
 
 .task-status {
