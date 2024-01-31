@@ -229,12 +229,13 @@ class Api:
         cursor = conn.cursor()
 
         cursor.execute('''
-            UPDATE tasks SET task_status = ? WHERE project_id = ? AND id = ?
+            UPDATE Tasks SET copy_status = ? WHERE project_id = ? AND task_id = ?
         ''', (new_status, project_id, task_id))
 
         conn.commit()
         conn.close()
         return "Task status updated successfully"
+
 
         
     def get_project_details(self, project_id):
@@ -272,14 +273,14 @@ class Api:
         cursor.execute('''
             INSERT INTO Projects (project_name, creation_time, project_status)
             VALUES (?, ?, ?)
-        ''', (project_name, datetime.datetime.now(), '未拷贝'))
+        ''', (project_name, datetime.now(), '未拷贝'))
         project_id = cursor.lastrowid
 
         conn.commit()
         conn.close()
 
         # 发送 WebSocket 消息通知项目已添加
-        add_message = f"Project '{project_name}' (ID: {project_id}) has been added."
+        add_message = f"新建项目 '{project_name}' (ID: {project_id}) 成功"
         message_queue.put(add_message)
 
         return project_id
@@ -326,18 +327,18 @@ class Api:
         cursor = conn.cursor()
 
         # 检查项目是否存在
-        cursor.execute("SELECT name FROM projects WHERE id=?", (project_id,))
+        cursor.execute("SELECT project_id FROM projects WHERE project_id=?", (project_id,))
         project = cursor.fetchone()
         if project is None:
             conn.close()
             return "Project not found or already deleted."
 
         # 删除项目
-        cursor.execute("DELETE FROM projects WHERE id=?", (project_id,))
+        cursor.execute("DELETE FROM projects WHERE project_id=?", (project_id,))
         conn.commit()
         conn.close()
 
-        delete_message = f"Project '{project[0]}' (ID: {project_id}) has been deleted."
+        delete_message = f"项目 '{project[0]}' (ID: {project_id}) 已经被删除"
         message_queue.put(delete_message)
         return delete_message
 
@@ -347,7 +348,7 @@ class Api:
         cursor = conn.cursor()
 
         # 删除任务
-        cursor.execute("DELETE FROM tasks WHERE project_id=? AND id=?", (project_id, task_id))
+        cursor.execute("DELETE FROM tasks WHERE project_id=? AND task_id=?", (project_id, task_id))
         conn.commit()
         conn.close()
 
@@ -358,16 +359,16 @@ class Api:
 
     
 
-    def start_copy(self, projectID, taskId, sourceDirectory, targetDirectory):
+    def start_copy(self, projectID, taskId, sourcePath, destinationPath):
         try:
             # 开始拷贝
             self.update_task_status(projectID, taskId, "拷贝中")
-            message = f"任务状态更新：开始拷贝任务 {taskId}，从 {sourceDirectory} 到 {targetDirectory}"
+            message = f"任务状态更新：开始拷贝任务 {taskId}，从 {sourcePath} 到 {destinationPath}"
             print(message)
             message_queue.put(message)
 
             # 执行文件拷贝
-            shutil.copytree(sourceDirectory, targetDirectory)
+            shutil.copytree(sourcePath, destinationPath)
 
             # 拷贝完成，更新状态为"已完成"
             self.update_task_status(projectID, taskId, "已完成")

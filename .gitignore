@@ -2,3 +2,4 @@ build/
 dist/
 data/
 filecopy.db
+test/

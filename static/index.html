@@ -10,7 +10,7 @@
     <title>文件拷贝校验工具</title>
     <link rel="stylesheet" href="css/style.css?v=13">
     <!-- 引入Vue 3 -->
-    <script src="js/vue.global.js"></script>
+    <script src="js/vue.global.prod.js"></script>
 
     <style>
         .message-popup {
@@ -140,10 +140,11 @@
                 <div class="task-creation-section">
 
                     <div class="task-info" v-for="task in selectedProjectDetails.tasks" :key="task.taskId">
+                        <!-- <div>Task Debug: {{ task }}</div> -->
 
                         <div class="task-detail" :style="{ backgroundColor: getBackgroundColor(task.copyStatus) }">
                             <button v-if="task.copyStatus !== '已完成'"
-                                @click="toggleCopy(selectedProjectDetails.projectID, task.taskId, task.sourceDirectory, task.targetDirectory)">
+                                @click="toggleCopy(selectedProjectDetails.projectID, task.taskId, task.sourcePath, task.destinationPath)">
                                 <span>{{ task.copyStatus }}</span>
                             </button>
                             <span v-else>{{ task.copyStatus }}</span>
@@ -163,7 +164,7 @@
                                 <div style="font-size: 0.8rem;display: flex;">
                                     <div style="margin: 10px;width: 60px; border-right: 2px solid #d22222;">
                                         <div>容量</div>
-                                        <div>{{ task.capacity }}</div>
+                                        <div>{{ task.fileSize }}</div>
                                     </div>
                                     <div style="display: flex;">
                                         <div style="margin: 10px;width: 160px; border-right: 2px solid #d22222;">
@@ -179,10 +180,10 @@
     
                             </div>
                             <div class="task-path">
-                                <span>源目录：</span>{{ task.sourceDirectory }}<br>
-                                <span>目标目录：</span>{{ task.targetDirectory }}
+                                <span>源目录：</span>{{ task.sourcePath }}<br>
+                                <span>目标目录：</span>{{ task.destinationPath }}
 
-                                <div v-if="task.copyStatus == '已完成'" style="position: absolute; right: 10px; top: 15px;" @click="openTargetDirectory(task.targetDirectory)">
+                                <div v-if="task.copyStatus == '已完成'" style="position: absolute; right: 10px; top: 15px;" @click="openTargetDirectory(task.destinationPath)">
                                     <img style="width: 20px;" src="img/wenjianjia.png">
                                 </div>
 
@@ -193,6 +194,8 @@
 
                     </div>
 
+                </div>
+                <div>
                 </div>
             </div>
 
@@ -264,11 +267,11 @@
             },
 
             mounted() {
-                console.log("当前网址:", window.location.href); // 输出当前网址
+                // console.log("当前网址:", window.location.href); // 输出当前网址
 
                 const checkPyWebView = setInterval(() => {
                     if (typeof pywebview !== 'undefined') {
-                        console.log("pywebview is available.");
+                        // console.log("pywebview is available.");
                         clearInterval(checkPyWebView);
                         this.initApp();
                         this.connectWebSocket();
@@ -284,12 +287,12 @@
                 connectWebSocket() {
                     const queryParams = new URLSearchParams(window.location.search);
                     const port = queryParams.get('port');
-                    console.log("WebSocket port from URL:", port); // 检查获取到的端口号
+                    // console.log("WebSocket port from URL:", port); // 检查获取到的端口号
                     if (port) {
                         this.ws = new WebSocket(`ws://localhost:${port}`);
 
                         this.ws.onopen = () => {
-                            console.log("Connected to WebSocket");
+                            // console.log("Connected to WebSocket");
                         };
 
                         this.ws.onmessage = (event) => {
@@ -343,18 +346,30 @@
 
 
                 initApp() {
+                    // console.log("initApp called");  // 打印提示信息
                     this.fetchProjectsList().then(() => {
-                        if (this.projects && this.projects.length > 0) {
+                        // console.log("Projects list loaded", this.projects);  // 打印加载的项目列表
+                        const savedProjectID = Number(localStorage.getItem('selectedProjectID'));  // 从localStorage获取保存的项目ID并转换为数字
+                        // console.log("Saved project ID from localStorage:", savedProjectID);  // 打印保存的项目ID
+
+                        if (savedProjectID && this.projects.some(p => p.projectID === savedProjectID)) {
+                            // console.log("Selecting saved project:", savedProjectID);  // 打印选择的项目ID
+                            this.selectProject(savedProjectID);
+                        } else if (this.projects && this.projects.length > 0) {
+                            // console.log("Selecting first project in the list");  // 打印选择列表中的第一个项目
                             this.selectProject(this.projects[0].projectID);
                         }
                     });
                 },
+
+
                 fetchProjectsList() {
                     return new Promise((resolve, reject) => {
                         if (typeof pywebview !== 'undefined') {
                             pywebview.api.get_projects_list().then(projectsList => {
-                                console.log("Fetched projects list:", projectsList);  // 打印获取到的项目列表
+                                // console.log("Fetched projects list:", projectsList);  // 打印获取到的项目列表
                                 this.projects = projectsList.projects.reverse();
+                                // console.log("Updated projects:", this.projects);  // 确认projects数据已更新
                                 resolve();
                             }).catch(error => {
                                 console.error('Error fetching projects list:', error);
@@ -408,14 +423,18 @@
                 },
 
                 selectProject(projectID) {
+                    // console.log("selectProject called with projectID:", projectID);  // 打印调用信息
                     this.selectedProjectID = projectID;
+                    localStorage.setItem('selectedProjectID', projectID);  // 保存项目ID到localStorage
                     pywebview.api.get_project_details(projectID).then(details => {
+                        // console.log("Received project details for projectID:", projectID, details);  // 打印获取的项目详情
                         this.selectedProjectDetails = details;
                     }).catch(error => {
-                        console.error('Error fetching project details:', error);
+                        // console.error('Error fetching project details:', error);
                         this.selectedProjectDetails = null; // 清空之前的项目详情
                     });
                 },
+
                 addProject() {
                     if (this.newProjectName) {
                         pywebview.api.save_project(this.newProjectName).then(projectID => {
@@ -436,24 +455,27 @@
                 },
 
                 addTask() {
-                        if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
-                            const taskId = Date.now().toString();  // 使用当前时间戳作为任务ID
-                            const sourceFolderName = this.sourceFolderPath.split(this.osSeparator).pop();  // 获取源文件夹的文件夹名
-                            const newTask = {
-                                taskId: taskId,
-                                taskName: sourceFolderName,  // 使用源文件夹的名字作为任务名称
-                                sourcePath: this.sourceFolderPath,
-                                destinationPath: [this.targetFolderPath, this.selectedProjectDetails.projectName, sourceFolderName].join(this.osSeparator),
-                                copyStatus: '未开始',  // 初始拷贝状态
-                                verificationMethod: '',  // 校验方式
-                                verificationStatus: '未校验',  // 初始校验状态
-                                fileSize: 0,  // 文件大小
-                                fileCount: 0  // 文件数量
-                            };
+                    console.log("addTask called"); // 打印调试信息
+                    if (this.selectedProjectID && this.sourceFolderPath && this.targetFolderPath) {
+                        const taskId = Date.now().toString();  // 使用当前时间戳作为任务ID
+                        const sourceFolderName = this.sourceFolderPath.split(this.osSeparator).pop();  // 获取源文件夹的文件夹名
+                        const newTask = {
+                            taskId: taskId,
+                            taskName: sourceFolderName,  // 使用源文件夹的名字作为任务名称
+                            sourcePath: this.sourceFolderPath,
+                            destinationPath: [this.targetFolderPath, this.selectedProjectDetails.projectName, sourceFolderName].join(this.osSeparator),
+                            copyStatus: '未开始',  // 初始拷贝状态
+                            verificationMethod: '',  // 校验方式
+                            verificationStatus: '未校验',  // 初始校验状态
+                            fileSize: 0,  // 文件大小
+                            fileCount: 0  // 文件数量
+                        };
+
+                        console.log("New task to add:", newTask); // 打印新任务的详细信息
 
                         pywebview.api.add_task_to_project(this.selectedProjectID, newTask)
                             .then(() => {
-                                //console.log('Task added successfully');
+                                console.log('Task added successfully');
                                 this.selectProject(this.selectedProjectID);
                                 this.isPopup2Visible = false;
                                 this.isPopupVisible = false;
@@ -467,6 +489,7 @@
                         console.log('必须选择项目和设置源路径与目标路径');
                     }
                 },
+
                 formatDuration(creationTime) {
                     const now = Date.now() / 1000;  // 当前时间戳（秒）
                     const duration = now - creationTime;  // 持续时间（秒）
@@ -585,13 +608,13 @@
                 },
 
 
-                toggleCopy(projectID, taskId, sourceDirectory, targetDirectory) {
+                toggleCopy(projectID, taskId, sourcePath, destinationPath) {
                     if (this.taskStatuses[taskId] === '已完成') {
                         return; // 如果任务已完成，则不执行任何操作
                     }
                     if (this.taskStatuses[taskId] !== '拷贝中') {
                         // 开始拷贝
-                        pywebview.api.start_copy(projectID, taskId, sourceDirectory, targetDirectory).then(() => {
+                        pywebview.api.start_copy(projectID, taskId, sourcePath, destinationPath).then(() => {
                             // 状态更新将在 start_copy 方法中完成
                             // this.setTaskTimer(taskId); // 如果需要，启用定时器
                         }).catch(error => {
@@ -605,6 +628,7 @@
                         }).catch(error => console.error('暂停拷贝时出错:', error));
                     }
                 },
+
                 updateTaskStatusInJson(projectID, taskId, newStatus) {
                     pywebview.api.update_task_status(projectID, taskId, newStatus)
                         .then(() => {
@@ -615,8 +639,8 @@
                         });
                 },
 
-                openTargetDirectory(targetPath) {
-                    pywebview.api.open_directory(targetPath).catch(error => {
+                openTargetDirectory(destinationPath) {
+                    pywebview.api.open_directory(destinationPath).catch(error => {
                         console.error('Error opening target directory:', error);
                     });
                 },
