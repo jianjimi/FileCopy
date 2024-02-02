@@ -4,7 +4,6 @@ import queue
 import json
 import os
 import shutil
-from datetime import datetime
 import asyncio
 import websockets
 import time
@@ -190,7 +189,7 @@ class Api:
         # 插入默认项目（如果需要）
         cursor.execute("SELECT COUNT(*) FROM Projects")
         if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO Projects (project_name, creation_time, project_status) VALUES (?, ?, ?)", ("默认项目", datetime.now(), "未拷贝"))
+            cursor.execute("INSERT INTO Projects (project_name, creation_time, project_status) VALUES (?, ?, ?)", ("默认项目", int(time.time()), "未拷贝"))
 
         # 提交事务
         conn.commit()
@@ -214,7 +213,7 @@ class Api:
         cursor.execute('''
             INSERT INTO Tasks (project_id, task_name, source_path, destination_path, creation_time, start_time, end_time, copy_status, verification_method, verification_status, file_size, file_count)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (project_id, task['taskName'], task['sourcePath'], task['destinationPath'], datetime.now(), None, None, '未开始', task['verificationMethod'], '未校验', task['fileSize'], task['fileCount']))
+        ''', (project_id, task['taskName'], task['sourcePath'], task['destinationPath'], int(time.time()), None, None, '未开始', task['verificationMethod'], '未校验', task['fileSize'], task['fileCount']))
         
         conn.commit()
         conn.close()
@@ -271,7 +270,7 @@ class Api:
         cursor.execute('''
             INSERT INTO Projects (project_name, creation_time, project_status)
             VALUES (?, ?, ?)
-        ''', (project_name, datetime.now(), '未拷贝'))
+        ''', (project_name, int(time.time()), '未拷贝'))
         project_id = cursor.lastrowid
 
         conn.commit()
@@ -369,7 +368,6 @@ class Api:
                 sourcePath, destinationPath = task
 
 
-
                 # 设置状态为"扫描中"并更新数据库
                 self.update_task_status(projectID, taskId, "扫描中")
                 
@@ -378,11 +376,14 @@ class Api:
                 message_queue.put(message)
 
                 fileSize, fileCount = self.scan_folder(sourcePath)  # 扫描文件夹大小和文件数量
+
+                current_timestamp = int(time.time())
+
                 cursor.execute('''
                     UPDATE Tasks 
                     SET file_size = ?, file_count = ?, start_time = CURRENT_TIMESTAMP
                     WHERE task_id = ?
-                ''', (fileSize, fileCount, taskId))
+                ''', (fileSize, fileCount, current_timestamp, taskId))
                 conn.commit()
 
 
@@ -508,7 +509,7 @@ def main():
         js_api=api,
         width=1100,
         height=750,
-        resizable=True,
+        resizable=False,
         fullscreen=False,
         confirm_close=True,
         localization=chinese

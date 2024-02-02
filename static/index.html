@@ -149,7 +149,7 @@
                             
                             任务名称：{{ task.taskName }}
 
-                            创建时间：{{ task.creationTime }}
+                            创建时间：{{ formatTimestamp(task.creationTime) }}
                             <div style="position: absolute; right: 10px; top: 10px;" @click="deleteTask(task.taskId)">
                                 <img style="width: 20px;" src="img/deltask.png">
                             </div>
@@ -159,9 +159,9 @@
 
                             <div class="task-status">
                                 <div style="font-size: 0.8rem;display: flex;">
-                                    <div style="margin: 10px;width: 60px; border-right: 2px solid #d22222;">
-                                        <div>容量</div>
-                                        <div>{{ task.fileSize }}</div>
+                                    <div style="margin: 10px;width: 100px; border-right: 2px solid #d22222;">
+                                        <div>容量：{{ displayFileSize(task.fileSize) }}</div>
+                                        <div>数量：{{ displayFileCount(task.fileCount) }}</div>
                                     </div>
                                     <div style="display: flex;">
                                         <div style="margin: 10px;width: 160px; border-right: 2px solid #d22222;">
@@ -174,9 +174,11 @@
                                         </div>
                                         
                                         <div style="margin: 10px;width: 160px; padding-left: 10px;border-left: 2px solid #d22222;">
-                                            <div>开始时间：{{ task.startTime }}</div>
-                                            <div>完成时间：{{ task.endTime }}</div>
+                                            <div>开始时间：{{ formatTimestamp(task.startTime) }}</div>
+                                            <div>完成时间：{{ formatTimestamp(task.endTime) }}</div>
+                                            <div>用时：{{ calculateDuration(task.startTime, task.endTime) }}</div>
                                         </div>
+                                        
                                     </div>
                                 </div>
     
@@ -619,19 +621,62 @@
 
                 
                 getBackgroundColor(copyStatus) {
-                    switch (copyStatus) {
-                        case '已完成':
-                        return 'green';
-                        case '拷贝中':
-                        return 'yellow';
-                        case '开始拷贝':
-                        return 'blue';
-                        case '出错':
-                        return 'red';
-                        default:
-                        return 'balck'; // 默认颜色
-                    }
+                        switch (copyStatus) {
+                            case '已完成':
+                            return '#198754';
+                            case '拷贝中':
+                            return '#0a58ca';
+                            case '开始拷贝':
+                            return '#0d6efd';
+                            case '出错':
+                            return 'red';
+                            default:
+                            return '#4c97c2'; // 默认颜色
+                        }
                     },
+
+
+
+
+
+                // 将时间戳转换为可读的日期时间格式，对空值处理
+                formatTimestamp(timestamp) {
+                    // 检查timestamp是否为空或非数字
+                    if (!timestamp || isNaN(timestamp)) {
+                        return 'N/A';  // 返回'N/A'或其他自定义字符串表示时间未知
+                    }
+                    const date = new Date(timestamp * 1000);  // 将时间戳（秒）转换为毫秒
+                    return date.toLocaleString();  // 使用toLocaleString()获取本地日期时间字符串
+                },
+                // 计算总用时
+                calculateDuration(startTime, endTime) {
+                    if (!startTime || !endTime) return 'N/A';  // 如果开始时间或结束时间未定义，则返回 'N/A'
+
+                    const start = new Date(startTime * 1000);
+                    const end = new Date(endTime * 1000);
+                    const diff = end - start;  // 计算时间差（毫秒）
+
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                    return `${hours}小时${minutes}分钟${seconds}秒`;
+                },
+                // 显示文件大小，如果为空或为0，则显示“待扫描”
+                displayFileSize(bytes) {
+                    if (bytes > 0) {
+                        const k = 1024;
+                        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                    } else {
+                        return '待扫描';
+                    }
+                },
+                // 显示文件数量，如果为空或为0，则显示“待扫描”
+                displayFileCount(count) {
+                    return count > 0 ? count : '待扫描';
+                },
 
 
             },
